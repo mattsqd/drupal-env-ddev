@@ -1,0 +1,1 @@
+This file lets drupal-env-ddev that it has not scaffolded yet so that it can backup any of your existing DDEV configuration before it scaffolds.

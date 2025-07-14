@@ -1,0 +1,57 @@
+{
+    "name": "mattsqd/drupal-env-ddev",
+    "description": "Use DDEV with the Drupal Env project.",
+    "minimum-stability": "stable",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "mattsqd",
+            "email": "mattsqd@users.noreply.github.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "DrupalEnvDdev\\": "./src/"
+        }
+    },
+    "type": "robo-tasks",
+    "require": {
+        "php": ">=8.2",
+        "consolidation/robo": "^3.0 || ^4.0 || ^5.0",
+        "drupal/core-composer-scaffold": "^10.0 || ^11.0",
+        "mattsqd/drupal-env": "dev-main"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "drupal/core-composer-scaffold": false
+        }
+    },
+    "extra": {
+        "drupal-scaffold": {
+            "gitignore": false,
+            "file-mapping": {
+                "[web-root]/sites/default/settings.drupal_env.ddev.php": {
+                    "mode": "replace",
+                    "path": "scaffolding/drupal_config/settings.drupal_env.ddev.php",
+                    "overwrite": true
+                },
+                "[project-root]/RoboEnv/Robo/Plugin/Commands/DdevCommands.php": {
+                    "mode": "replace",
+                    "path": "scaffolding/Robo/DdevCommands.php",
+                    "overwrite": true
+                },
+                "[project-root]/.gitignore": {
+                    "append": "scaffolding/gitignore-additions.txt",
+                    "force-append": true
+                },
+                "[project-root]/.drupal-env-ddev-scaffolded": {
+                    "mode": "replace",
+                    "path": "scaffolding/.drupal-env-ddev-scaffolded",
+                    "overwrite": true
+                }
+            }
+        }
+    }
+}
