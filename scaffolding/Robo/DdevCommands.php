@@ -1,8 +1,7 @@
 <?php
 
-namespace Robo;
+namespace RoboEnv\Robo\Plugin\Commands;
 
-use RoboEnv\Robo\Plugin\Commands\CommonCommands;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Yaml\Yaml;
@@ -16,14 +15,14 @@ class DdevCommands extends CommonCommands
 {
 
     /**
-     * The path to the config.local.yaml.
+     * The path to the .ddev.local.yaml.
      *
      * @var string
      */
     protected string $ddev_local_yml_path = '.ddev/config.local.yaml';
 
     /**
-     * The path to the .config.yaml.
+     * The path to the .ddev.yaml.
      *
      * @var string
      */
