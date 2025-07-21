@@ -593,13 +593,13 @@ class DdevCommands extends CommonCommands
         if (!$this->ddevReqs($io)) {
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
-        // Introduce the common shortcuts so one knows how they work and to
-        // configure them.
-        $this->introduceCommonShortcuts($io);
         // This will now be the default local environment, as many can be
         // installed. This allows the shortcuts like drush.sh to know which
         // environment to use.
         $this->setDefaultLocalEnvironment($this->getName());
+        // Introduce the common shortcuts so one knows how they work and to
+        // configure them.
+        $this->introduceCommonShortcuts($io);
         // Check if the original directory has been captured yet, if not this
         // is the original install. It does not matter if that directory
         // does not exist anymore, it will not be copied from just it's name
