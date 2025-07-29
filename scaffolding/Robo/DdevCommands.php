@@ -109,17 +109,23 @@ class DdevCommands extends CommonCommands
         $this->isInit();
         $io->writeln('Ensuring xdebug is enabled...');
         $this->_exec('ddev xdebug on');
-        if ($this->getEnv('drush-allow-xdebug') !== '1') {
-            $io->warning('This will cause warning messages to flood your console if your IDE is not listening for Xdebug connections. Instead, you can run drush with the --xdebug option to trigger Xdebug to connect on a per command basis.');
-            if ($io->confirm('Do you want to continue?')) {
-                $this->setEnv('drush-allow-xdebug', '1');
+        $value = 'DRUSH_ALLOW_XDEBUG=1';
+        $yml_file = $this->getDdevLocalYml();
+        $yml_value =& $yml_file['web_environment'];
+        if (is_array($yml_value) && in_array($value, $yml_value)) {
+            $this->yell('Drush Xdebug is enabled, disabling now.');
+            unset($yml_value[array_search($value, $yml_value)]);
+            if (empty($yml_file['web_environment'])) {
+                unset($yml_file['web_environment']);
             } else {
-                return;
+                // Make sure keys are in order.
+                $yml_file['web_environment'] = array_values($yml_file['web_environment']);
             }
         } else {
-            $this->setEnv('drush-allow-xdebug', '0');
-            $io->writeln('You can still drush drush with the --xdebug option to trigger Xdebug to connect on a per command basis.');
+            $this->yell('Drush Xdebug is disabled, enabling now.');
+            $yml_value[] = $value;
         }
+        $this->saveDdevLocalYml($yml_file);
         $this->rebuildRequired($io, true);
     }
 
