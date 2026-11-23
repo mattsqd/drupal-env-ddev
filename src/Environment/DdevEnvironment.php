@@ -1,17 +1,22 @@
 <?php
 
-namespace RoboEnv\Robo\Plugin\Commands;
+declare(strict_types=1);
 
+namespace DrupalEnvDdev\Environment;
+
+use DrupalEnv\Environment\Environment;
+use DrupalEnv\Environment\Feature\SupportsDuplicate;
+use DrupalEnv\Environment\Feature\SupportsSolrConfig;
+use DrupalEnv\Environment\Feature\SupportsXdebugDrush;
+use DrupalEnv\Environment\Feature\SupportsXdebugOnByDefault;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Run orchestration tasks for Ddev.
- *
- * @class RoboFile
+ * DDEV local environment.
  */
-class DdevCommands extends CommonCommands
+class DdevEnvironment extends Environment implements SupportsXdebugOnByDefault, SupportsXdebugDrush, SupportsDuplicate, SupportsSolrConfig
 {
 
     /**
@@ -39,7 +44,15 @@ class DdevCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function composerCommand($inside = TRUE): string
+    public static function getLabel(): string
+    {
+        return 'DDEV';
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public static function composerCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'composer';
@@ -51,7 +64,7 @@ class DdevCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function drushCommand($inside = TRUE): string
+    public static function drushCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'drush';
@@ -63,7 +76,7 @@ class DdevCommands extends CommonCommands
     /**
      * {@inheritDoc}
      */
-    public static function execCommand($inside = TRUE): string
+    public static function execCommand(bool $inside = true): string
     {
         if ($inside) {
             return 'bash -c';
@@ -73,16 +86,13 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Toggles when Ddev starts up, xdebug will now be on by default.
-     *
-     * @command ddev:xdebug-toggle-on-by-default
+     * {@inheritDoc}
      */
-    public function xdebugToggleOnByDefault(): void
+    public function xdebugToggleOnByDefault(SymfonyStyle $io): void
     {
         $this->isInit();
         $yml_file = $this->getDdevLocalYml();
         $yml_value =& $yml_file['xdebug_enabled'];
-        var_dump($yml_value);
         if ($yml_value === true) {
             $this->yell('Xdebug is enabled by default, disabling now.');
             $yml_value = false;
@@ -96,13 +106,9 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Toggles XDebug to work on Drush commands.
-     *
-     * Xdebug must be enabled for this to work.
+     * {@inheritDoc}
      *
      * https://ddev.readthedocs.io/en/stable/users/usage/cms-settings/#drush-and-xdebug
-     *
-     * @command ddev:xdebug-toggle-drush
      */
     public function xdebugToggleDrush(SymfonyStyle $io): void
     {
@@ -159,6 +165,14 @@ class DdevCommands extends CommonCommands
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function isSetUp(): bool
+    {
+        return $this->doesDdevFileExists(true);
+    }
+
+    /**
      * Requires ddev file to exist.
      *
      * @param bool $return
@@ -174,13 +188,13 @@ class DdevCommands extends CommonCommands
             if ($return) {
                 return false;
             }
-            throw new \Exception('Ddev file does not exist, please run ddev-admin:setup-project instead.');
+            throw new \Exception('Ddev file does not exist, please run denv-admin:local-setup instead.');
         }
         return true;
     }
 
     /**
-     * {@inheritDoc}
+     * Requires the DDEV config to exist and have a project name.
      */
     protected function isInit(bool $return = false): bool
     {
@@ -192,7 +206,7 @@ class DdevCommands extends CommonCommands
             if ($return) {
                 return false;
             }
-            throw new \Exception("{$this->ddev_yml_path} has not set project name yet, please run ddev-admin:setup-project instead.");
+            throw new \Exception("{$this->ddev_yml_path} has not set project name yet, please run denv-admin:local-setup instead.");
         }
         return true;
     }
@@ -220,52 +234,14 @@ class DdevCommands extends CommonCommands
      */
     protected function saveDdevYml(array|string $file_contents): bool
     {
-        $this->say("{$this->ddev_yml_path} has been written. Please commit this file so that ./robo.sh ddev:init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to ddev rebuild -y");
+        $this->say("{$this->ddev_yml_path} has been written. Please commit this file so that ./robo.sh denv:local-init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to ddev rebuild -y");
         return $this->saveYml($this->ddev_yml_path, $file_contents);
     }
 
     /**
-     * Configure Ddev so it can be started.
-     *
-     * * Creates the config.yaml file
-     * * Set the PHP version
-     *
-     * @command ddev-admin:init
+     * {@inheritDoc}
      */
-    public function ddevAdminInit(SymfonyStyle $io): void
-    {
-        if ($this->doesDdevFileExists(true) && !$io->confirm("Ddev is already set up, are you sure you want to update your {$this->ddev_yml_path} file?", false)) {
-            $this->say('Cancelled.');
-            return;
-        }
-        $this->enterToContinue($io, 'Running through the interactive configuration of DDEV. This can be run by itself later via `./robo.sh ddev-admin:config`.');
-
-        $this->_exec('vendor/bin/robo ddev-admin:config')->stopOnFail();
-
-        $this->enterToContinue($io, 'Setting required shared services. This can be run by itself later via `./robo.sh ddev-admin:set-required-shared-services`.');
-        $this->_exec('vendor/bin/robo ddev-admin:set-required-shared-services');
-
-        $this->enterToContinue($io, 'DDEV will now start up and install Drupal so that the scripts can work on your current install.');
-        $this->_exec('vendor/bin/robo ddev:init')->stopOnFail();
-
-        $this->enterToContinue($io, 'Setting optional shared services. This can be run by itself later via `./robo.sh ddev-admin:set-optional-shared-services`.');
-        $this->_exec('vendor/bin/robo ddev-admin:set-optional-shared-services');
-
-        // The following are shared commands that are not specific to Ddev, but
-        // instead just need a local installed to work.
-        $this->enterToContinue($io, 'Taking action after a local has been installed. This can be run by itself later via `./robo.sh post-local-started`.');
-        $this->_exec('vendor/bin/robo common-admin:post-local-started');
-
-    }
-
-    /**
-     * Initial DDEV configuration.
-     *
-     * @command ddev-admin:config
-     *
-     * @return void
-     */
-    public function ddevAdminConfig(SymfonyStyle $io): void
+    public function config(SymfonyStyle $io): void
     {
         while (true) {
             if ($this->taskExec('ddev')->args('config')->run()->wasSuccessful()) {
@@ -278,12 +254,12 @@ class DdevCommands extends CommonCommands
                         $last_key => $last_value,
                         'hooks' => [
                             'post-config' => [
-                                ['exec-host' => './robo.sh common:remove-settings-php-changes'],
+                                ['exec-host' => './robo.sh denv:remove-settings-php-changes'],
                             ],
                             'post-start' => [
                                 ['exec' => 'env COMPOSER_DEV=1 ./orch/build.sh;'],
                                 ['exec' => './orch/build_node.sh;'],
-                                ['exec-host' => './robo.sh common:remove-settings-php-changes'],
+                                ['exec-host' => './robo.sh denv:remove-settings-php-changes'],
                             ]
                         ]
                     ];
@@ -412,13 +388,9 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Change the version of services always included.
-     *
-     * @command ddev-admin:set-required-shared-services
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    public function ddevAdminSetRequiredSharedServices(SymfonyStyle $io): void
+    public function servicesRequired(SymfonyStyle $io): void
     {
         $this->isInit();
         $io->warning('Drupal requirements for Web Servers: https://www.drupal.org/docs/getting-started/system-requirements/web-server-requirements');
@@ -433,13 +405,9 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Add or remove additional shared services.
-     *
-     * @command ddev-admin:set-optional-shared-services
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    public function ddevAdminSetOptionalSharedServices(SymfonyStyle $io): void
+    public function servicesOptional(SymfonyStyle $io): void
     {
         $this->isInit();
         $this->isDrupalInstalled($io);
@@ -534,17 +502,13 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Copy the Solr config from Drupal to the Solr server config directory.
-     *
-     * @return void
-     *
-     * @command ddev-admin:solr-config
+     * {@inheritDoc}
      */
-    public function ddevAdminSolrConfig(SymfonyStyle $io): void
+    public function solrConfig(SymfonyStyle $io): void
     {
         $this->isInit();
         $this->isDrupalInstalled($io);
-        $this->drush($io, ['search-api-solr:get-server-config', 'default_solr_server', 'solr-config.zip']);
+        $this->_exec(static::drushCommand() . ' search-api-solr:get-server-config default_solr_server solr-config.zip');
         if ($this->taskDeleteDir('solr-conf')
             ->taskExtract('web/solr-config.zip')
             ->to('solr-conf')
@@ -566,57 +530,20 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Ensure that an original install directory flag is set.
-     *
-     * This helps with the project copying functionality.
-     *
-     * @return string
+     * {@inheritDoc}
      */
-    protected function ensureOriginalInstallDirectorySet(): string
+    public function rebuild(SymfonyStyle $io): void
     {
-        $original_install_directory = $this->getConfig('flags.ddev.originalInstallDirectory', '', true);
-        if (!strlen($original_install_directory)) {
-            $original_install_directory = basename(realpath(getcwd()));
-            $this->saveConfig('flags.ddev.originalInstallDirectory', $original_install_directory, true);
-        }
-        return $original_install_directory;
+        $this->_exec('ddev delete --omit-snapshot -y')->stopOnFail();
+        $this->_exec('ddev start')->stopOnFail();
     }
 
     /**
-     * Start Ddev for the first time.
-     *
-     * * Ensures ddev is installed.
-     * * Introduce to common shortcuts.
-     * * Set DDEV to the default env.
-     * * Starts up DDEV.
-     * * Installs Drupal.
-     * * Set personal services.
-     *
-     * @command ddev:init
+     * {@inheritDoc}
      */
-    public function ddevInit(SymfonyStyle $io): void
+    public function afterInit(SymfonyStyle $io): void
     {
-        if (!$this->ddevReqs($io)) {
-            throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
-        }
-        // This will now be the default local environment, as many can be
-        // installed. This allows the shortcuts like drush.sh to know which
-        // environment to use.
-        $this->setDefaultLocalEnvironment($this->getName());
-        // Introduce the common shortcuts so one knows how they work and to
-        // configure them.
-        $this->introduceCommonShortcuts($io);
-        // Check if the original directory has been captured yet, if not this
-        // is the original install. It does not matter if that directory
-        // does not exist anymore, it will not be copied from just it's name
-        // used in new copied projects.
-        // This allows the project to be copied from any descendant and use
-        // the original directory + suffix.
-        $this->ensureOriginalInstallDirectorySet();
-        $this->_exec('ddev delete --omit-snapshot -y')->stopOnFail();
-        $this->_exec('ddev start')->stopOnFail();
-        $this->_exec('./robo.sh si')->stopOnFail();
-        if ($io->confirm('Would you like to add completion for ddev commands to your shell?)')) {
+        if ($io->confirm('Would you like to add completion for ddev commands to your shell?')) {
             $this->_exec('ddev completion');
             $shell = $this->ask('What shell do you use from the above options? Hit enter to just skip this step.');
             if (strlen($shell)) {
@@ -624,16 +551,9 @@ class DdevCommands extends CommonCommands
                 $this->enterToContinue($io, 'Please copy the above completion scripts and follow this documentation to install them https://apple.github.io/swift-argument-parser/documentation/argumentparser/installingcompletionscripts/');
             }
         }
-        $io->success('Your environment has been started and Drupal site installed! Please use the one time login link to login.');
         $io->info('You have access to a couple very useful commands, `ddev phpmyadmin` and `ddev mailpit` for database and email access.');
         $io->info('How do I interact with my environment?');
         $io->info('Just like a normal DDEV site (https://ddev.readthedocs.io).');
-        $io->info('What\'s different?');
-        $io->info('You have two new robo "tooling" available: "./robo.sh si" will install a Drupal site from configuration. "./robo.sh su" will update an already installed site, like a normal production deployment without destroying the database.');
-        $io->info('You now have access to helper commands via ./robo.sh. These can be found under the "common", "xdebug", and "ddev" namespaces. Those in the "common-admin" & "ddev-admin" will effect files that are committed and therefore all developers. You also have access to the common shortcuts. You can find and reset their paths via "./robo.sh common:shortcuts-help".');
-        if ($io->confirm('Would you like to reset or learn more about shortcuts or reset their paths?', false)) {
-            $this->_exec('./robo.sh common:shortcuts-help');
-        }
         $xdebug_on = $io->choice('Would you like to enable Xdebug?', [
             'always' => 'Whenever the environment starts',
             'once' => 'Until the next restart',
@@ -641,30 +561,21 @@ class DdevCommands extends CommonCommands
         ]);
         if ($xdebug_on !== 'no') {
             if ($xdebug_on === 'always') {
-                $this->_exec('vendor/bin/robo ddev:xdebug-toggle-on-by-default');
+                $this->runStep('denv:xdebug-toggle-on-by-default');
             } elseif ($xdebug_on === 'once') {
                 $this->_exec('ddev xdebug on');
             }
             if ($io->confirm('When Xdebug is on, would you like to to debug Drush commands as well?')) {
-                $this->_exec('vendor/bin/robo ddev:xdebug-toggle-drush');
+                $this->runStep('denv:xdebug-toggle-drush');
             }
         }
-
-        $io->writeln('Run ddev launch visit the environment or ./drush.sh uli to get a login link.');;
-        // @todo: Ask to enable local settings (no cache / twig debug).
+        $io->writeln('Run ddev launch visit the environment or ./drush.sh uli to get a login link.');
     }
 
     /**
-     * Display the requirements to use Ddev.
-     *
-     * @command ddev:reqs
-     *
-     * @return bool
-     *   True if all requirements are installed.
-     *
-     * @throws \Exception
+     * {@inheritDoc}
      */
-    public function ddevReqs(SymfonyStyle $io): bool
+    public function reqs(SymfonyStyle $io): bool
     {
         $rows = [];
         $missing_software = FALSE;
@@ -682,26 +593,9 @@ class DdevCommands extends CommonCommands
     }
 
     /**
-     * Get a project folder name that is a sibling.
-     *
-     * @param string $sibling_project_folder_name
-     *
-     * @return string
+     * {@inheritDoc}
      */
-    protected function getSiblingAbsDir(string $sibling_project_folder_name): string
-    {
-        return realpath(getcwd() . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $sibling_project_folder_name;
-    }
-
-    /**
-     * Create a duplicate local environment.
-     *
-     * * Copy all files to a new directory
-     * * Cleans up IDE settings for new directory name.
-     *
-     * @command ddev:duplicate-project
-     */
-    public function ddevDuplicateProject(SymfonyStyle $io): void
+    public function duplicate(SymfonyStyle $io): void
     {
         $this->isInit();
         $ddev_file_yml = $this->getDdevYml();

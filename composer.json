@@ -30,6 +30,9 @@
     },
     "extra": {
         "drupal-env": {
+            "environments": {
+                "ddev": "DrupalEnvDdev\\Environment\\DdevEnvironment"
+            },
             "file-mapping": {
                 "[project-root]/.gitignore": "scaffolding/gitignore-additions.txt"
             }
@@ -40,11 +43,6 @@
                 "[web-root]/sites/default/settings.drupal_env.ddev.php": {
                     "mode": "replace",
                     "path": "scaffolding/drupal_config/settings.drupal_env.ddev.php",
-                    "overwrite": true
-                },
-                "[project-root]/RoboEnv/Robo/Plugin/Commands/DdevCommands.php": {
-                    "mode": "replace",
-                    "path": "scaffolding/Robo/DdevCommands.php",
                     "overwrite": true
                 },
                 "[project-root]/.drupal-env-ddev-scaffolded": {
